@@ -1,0 +1,21 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "regions": ["sfo1"],
+  "crons": [
+    {
+      "path": "/api/agents/deal-scanner",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/agents/refi-monitor",
+      "schedule": "0 9 1 * *"
+    },
+    {
+      "path": "/api/agents/financial-reporter",
+      "schedule": "0 8 1 * *"
+    }
+  ]
+}

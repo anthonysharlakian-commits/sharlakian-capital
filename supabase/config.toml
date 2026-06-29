@@ -1,0 +1,12 @@
+{
+  "project_id": "sharlakian-holdings-os",
+  "api": {
+    "port": 54321
+  },
+  "db": {
+    "port": 54322
+  },
+  "studio": {
+    "port": 54323
+  }
+}
