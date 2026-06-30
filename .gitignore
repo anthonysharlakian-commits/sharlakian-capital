@@ -32,5 +32,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# cursor rules (internal architecture — not for public repo)
+.cursorrules
+
+# PWA service worker (generated at build time by next-pwa)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/worker-*.js
+
 # local mock data persistence
 .data/

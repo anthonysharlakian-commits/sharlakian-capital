@@ -1,0 +1,13 @@
+{
+  "name": "SHARLAKIAN Holdings OS",
+  "short_name": "Holdings OS",
+  "description": "Real estate investment command center",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#03060E",
+  "theme_color": "#C9A84C",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

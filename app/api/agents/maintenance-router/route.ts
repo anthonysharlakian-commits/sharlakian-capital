@@ -14,6 +14,7 @@ import {
   getMockStore,
   addMockAgentLog,
 } from "@/lib/mock-store";
+import { setAgentStatus } from "@/lib/agents/status";
 
 interface DiagnosisResult {
   trade: string;
@@ -48,6 +49,8 @@ export async function POST(request: Request) {
   if (!requestId) {
     return NextResponse.json({ error: "requestId required" }, { status: 400 });
   }
+
+  await setAgentStatus("maintenance_router", "scanning");
 
   try {
     let maintRequest: {
@@ -194,9 +197,11 @@ Return JSON: {
       status: "success",
     });
 
+    await setAgentStatus("maintenance_router", "active");
     return NextResponse.json({ success: true, diagnosis, contractor: contractorName });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    await setAgentStatus("maintenance_router", "error");
     await logAgentAction("maintenance_router", "routing_failed", {
       input: { requestId },
       output: { error: message },

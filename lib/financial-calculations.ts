@@ -34,7 +34,7 @@ export interface FinancialMetrics {
   totalCashNeeded: number;
 }
 
-function calcMonthlyMortgage(
+export function calcMonthlyMortgage(
   principal: number,
   annualRate: number,
   termYears: number
@@ -113,4 +113,118 @@ export function getOperatingExpenseRatio(propertyType: string): number {
     multifamily: 0.45,
   };
   return ratios[propertyType] ?? 0.4;
+}
+
+export const FHA_DEFAULTS = {
+  downPaymentPct: 0.035,
+  upfrontMipPct: 0.0175,
+  annualMipPct: 0.0055,
+  interestRate: 0.065,
+  loanTermYears: 30,
+};
+
+export interface HouseHackInputs {
+  purchasePrice: number;
+  aduMonthlyRent: number;
+  ownerUnitMarketRent: number;
+  monthlyTaxesInsuranceHoa: number;
+  interestRate?: number;
+  operatingExpenseRatio?: number;
+}
+
+export interface HouseHackAnalysis {
+  phase1: {
+    monthlyPI: number;
+    monthlyMip: number;
+    totalPiti: number;
+    aduRentCoverage: number;
+    effectiveHousingCost: number;
+    monthlySavingsVsRenting: number;
+  };
+  phase2: FinancialMetrics;
+  dealScore: number;
+  scoreBreakdown: {
+    phase1Score: number;
+    phase2CapRateScore: number;
+    phase2CocScore: number;
+  };
+  recommendation: "GO" | "CAUTION" | "NO-GO";
+}
+
+export function calculateHouseHackAnalysis(
+  inputs: HouseHackInputs
+): HouseHackAnalysis {
+  const rate = inputs.interestRate ?? FHA_DEFAULTS.interestRate;
+  const downPayment = inputs.purchasePrice * FHA_DEFAULTS.downPaymentPct;
+  const baseLoanAmount = inputs.purchasePrice - downPayment;
+  const ufmip = baseLoanAmount * FHA_DEFAULTS.upfrontMipPct;
+  const loanAmount = baseLoanAmount + ufmip;
+  const monthlyPI = calcMonthlyMortgage(
+    loanAmount,
+    rate,
+    FHA_DEFAULTS.loanTermYears
+  );
+  const monthlyMip = (loanAmount * FHA_DEFAULTS.annualMipPct) / 12;
+  const totalPiti = monthlyPI + monthlyMip + inputs.monthlyTaxesInsuranceHoa;
+  const aduRentCoverage =
+    totalPiti > 0 ? inputs.aduMonthlyRent / totalPiti : 0;
+  const effectiveHousingCost = totalPiti - inputs.aduMonthlyRent;
+  const monthlySavingsVsRenting =
+    inputs.ownerUnitMarketRent - effectiveHousingCost;
+
+  const savingsRatio =
+    inputs.ownerUnitMarketRent > 0
+      ? monthlySavingsVsRenting / inputs.ownerUnitMarketRent
+      : 0;
+
+  let phase1Score = 0;
+  if (savingsRatio >= 0.2) phase1Score = 40;
+  else if (savingsRatio >= 0.1) phase1Score = 32;
+  else if (savingsRatio >= 0.0) phase1Score = 24;
+  else if (savingsRatio >= -0.1) phase1Score = 14;
+  else phase1Score = 0;
+
+  const phase2 = calculateFinancialMetrics({
+    purchasePrice: inputs.purchasePrice,
+    downPaymentPct: FHA_DEFAULTS.downPaymentPct,
+    interestRate: rate,
+    loanTermYears: FHA_DEFAULTS.loanTermYears,
+    grossMonthlyRent: inputs.aduMonthlyRent + inputs.ownerUnitMarketRent,
+    operatingExpenseRatio: inputs.operatingExpenseRatio,
+  });
+
+  let phase2CapRateScore = 0;
+  if (phase2.capRate >= 0.07) phase2CapRateScore = 30;
+  else if (phase2.capRate >= 0.06) phase2CapRateScore = 24;
+  else if (phase2.capRate >= 0.05) phase2CapRateScore = 16;
+  else if (phase2.capRate >= 0.04) phase2CapRateScore = 8;
+
+  let phase2CocScore = 0;
+  if (phase2.cashOnCashReturn >= 0.1) phase2CocScore = 30;
+  else if (phase2.cashOnCashReturn >= 0.08) phase2CocScore = 24;
+  else if (phase2.cashOnCashReturn >= 0.06) phase2CocScore = 16;
+  else if (phase2.cashOnCashReturn >= 0.04) phase2CocScore = 8;
+
+  const dealScore = phase1Score + phase2CapRateScore + phase2CocScore;
+  const recommendation: "GO" | "CAUTION" | "NO-GO" =
+    dealScore >= 70 ? "GO" : dealScore >= 50 ? "CAUTION" : "NO-GO";
+
+  return {
+    phase1: {
+      monthlyPI,
+      monthlyMip,
+      totalPiti,
+      aduRentCoverage,
+      effectiveHousingCost,
+      monthlySavingsVsRenting,
+    },
+    phase2,
+    dealScore,
+    scoreBreakdown: {
+      phase1Score,
+      phase2CapRateScore,
+      phase2CocScore,
+    },
+    recommendation,
+  };
 }

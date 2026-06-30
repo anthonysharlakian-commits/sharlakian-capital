@@ -1,16 +1,34 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { signIn, signUp, signInWithMagicLink } from "@/app/actions/auth";
+import { Suspense, useState, useTransition, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { signIn } from "@/app/actions/auth";
+import { BROWSER_SESSION_KEY } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const authConfigured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+
+  useEffect(() => {
+    sessionStorage.removeItem(BROWSER_SESSION_KEY);
+    const paramError = searchParams.get("error");
+    if (paramError === "auth_not_configured") {
+      setError(
+        "Sign-in is not configured yet. Add Supabase keys in Vercel environment variables."
+      );
+    } else if (paramError === "auth") {
+      setError("Sign-in failed. Please try again.");
+    }
+  }, [searchParams]);
 
   function handleSignIn(formData: FormData) {
     setError(null);
@@ -20,76 +38,53 @@ export default function LoginPage() {
     });
   }
 
-  function handleSignUp(formData: FormData) {
-    setError(null);
-    startTransition(async () => {
-      const result = await signUp(formData);
-      if (result?.error) setError(result.error);
-    });
-  }
-
-  function handleMagicLink(formData: FormData) {
-    setError(null);
-    setMessage(null);
-    startTransition(async () => {
-      const result = await signInWithMagicLink(formData);
-      if (result?.error) setError(result.error);
-      if (result?.success) setMessage(result.message ?? "Check your email.");
-    });
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md glass-card">
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto h-12 w-12 rounded-lg bg-primary flex items-center justify-center mb-2">
-            <span className="text-primary-foreground font-bold">SH</span>
-          </div>
-          <CardTitle>Sharlakian Holdings OS</CardTitle>
+          <span className="sidebar-logo-mark block">SH</span>
+          <span className="sidebar-logo-sub block mt-1 mb-3">HOLDINGS OS</span>
           <CardDescription>Sign in to your investment command center</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signin">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              <TabsTrigger value="magic">Magic Link</TabsTrigger>
-            </TabsList>
+          {!authConfigured ? (
+            <p className="body-text text-[var(--red)] text-center">
+              Authentication is required but Supabase is not configured. Add environment
+              variables in Vercel.
+            </p>
+          ) : (
+            <form action={handleSignIn} className="space-y-3">
+              <Input name="email" type="email" placeholder="Email" required autoComplete="email" />
+              <Input
+                name="password"
+                type="password"
+                placeholder="Password"
+                required
+                autoComplete="current-password"
+              />
+              <Button type="submit" className="w-full" disabled={pending}>
+                {pending ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+          )}
 
-            <TabsContent value="signin">
-              <form action={handleSignIn} className="space-y-4 mt-4">
-                <Input name="email" type="email" placeholder="Email" required />
-                <Input name="password" type="password" placeholder="Password" required />
-                <Button type="submit" className="w-full" disabled={pending}>
-                  {pending ? "Signing in..." : "Sign In"}
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup">
-              <form action={handleSignUp} className="space-y-4 mt-4">
-                <Input name="email" type="email" placeholder="Email" required />
-                <Input name="password" type="password" placeholder="Password (min 6 chars)" minLength={6} required />
-                <Button type="submit" className="w-full" disabled={pending}>
-                  {pending ? "Creating account..." : "Create Account"}
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="magic">
-              <form action={handleMagicLink} className="space-y-4 mt-4">
-                <Input name="email" type="email" placeholder="Email" required />
-                <Button type="submit" variant="outline" className="w-full" disabled={pending}>
-                  {pending ? "Sending..." : "Send Magic Link"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-
-          {error && <p className="text-sm text-score-low mt-4 text-center">{error}</p>}
-          {message && <p className="text-sm text-score-high mt-4 text-center">{message}</p>}
+          {error && <p className="body-text text-[var(--red)] mt-4 text-center">{error}</p>}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="body-text text-[var(--text-muted)]">Loading…</p>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

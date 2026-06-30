@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { callClaude, logAgentAction } from "@/lib/claude";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { setAgentStatus } from "@/lib/agents/status";
 
 interface ScreeningResult {
   score: number;
@@ -13,6 +14,8 @@ interface ScreeningResult {
 export async function POST(request: Request) {
   const data = await request.json();
   const supabase = createAdminClient();
+
+  await setAgentStatus("tenant_screener", "scanning");
 
   try {
     const { data: result, tokensUsed, error } = await callClaude<ScreeningResult>(
@@ -57,9 +60,11 @@ Return JSON: {
       status: "success",
     });
 
+    await setAgentStatus("tenant_screener", "idle");
     return NextResponse.json({ success: true, result, tenant });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    await setAgentStatus("tenant_screener", "error");
     await logAgentAction("tenant_screener", "screening_failed", {
       output: { error: message },
       status: "error",

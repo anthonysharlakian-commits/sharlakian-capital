@@ -5,6 +5,7 @@ import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { notifyOwner, formatRefiOpportunity } from "@/lib/twilio";
 import { verifyCronAuth, unauthorizedResponse } from "@/lib/auth/cron";
 import { getMockStore, addMockAgentLog } from "@/lib/mock-store";
+import { setAgentStatus } from "@/lib/agents/status";
 import type { Property } from "@/lib/types/database";
 
 async function runMonitor(properties: Property[]) {
@@ -53,15 +54,19 @@ async function runMonitor(properties: Property[]) {
 export async function POST(request: Request) {
   if (!verifyCronAuth(request)) return unauthorizedResponse();
 
+  if (!verifyCronAuth(request)) return unauthorizedResponse();
+
+  await setAgentStatus("refi_monitor", "scanning");
+
   try {
     let properties: Property[] = [];
 
     if (hasSupabaseConfig()) {
       const supabase = createAdminClient();
-      const { data } = await supabase.from("properties").select("*").eq("status", "owned");
+      const { data } = await supabase.from("properties").select("*").in("status", ["active", "owned"]);
       properties = (data as Property[]) ?? [];
     } else {
-      properties = getMockStore().properties.filter((p) => p.status === "owned");
+      properties = getMockStore().properties.filter((p) => p.status === "active" || p.status === "owned");
     }
 
     const opportunities = await runMonitor(properties);
@@ -78,6 +83,7 @@ export async function POST(request: Request) {
       });
     }
 
+    await setAgentStatus("refi_monitor", "idle");
     return NextResponse.json({
       success: true,
       opportunities_checked: properties.length,
@@ -85,6 +91,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    await setAgentStatus("refi_monitor", "error");
     await logAgentAction("refi_monitor", "monitor_failed", {
       output: { error: message },
       status: "error",

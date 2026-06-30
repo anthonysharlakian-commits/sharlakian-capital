@@ -5,6 +5,7 @@ import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { verifyCronAuth, unauthorizedResponse } from "@/lib/auth/cron";
 import { getMockStore } from "@/lib/mock-store";
 import { notifyOwner } from "@/lib/twilio";
+import { setAgentStatus } from "@/lib/agents/status";
 
 interface AnomalyResult {
   anomalies: string[];
@@ -25,6 +26,8 @@ interface PropertyReport {
 export async function POST(request: Request) {
   if (!verifyCronAuth(request)) return unauthorizedResponse();
 
+  await setAgentStatus("financial_reporter", "scanning");
+
   let totalTokens = 0;
   const reports: PropertyReport[] = [];
 
@@ -33,10 +36,10 @@ export async function POST(request: Request) {
 
     if (hasSupabaseConfig()) {
       const supabase = createAdminClient();
-      const { data } = await supabase.from("properties").select("*").eq("status", "owned");
+      const { data } = await supabase.from("properties").select("*").in("status", ["active", "owned"]);
       properties = data ?? [];
     } else {
-      properties = getMockStore().properties.filter((p) => p.status === "owned");
+      properties = getMockStore().properties.filter((p) => p.status === "active" || p.status === "owned");
     }
     for (const property of properties) {
       let income = 0;
@@ -128,6 +131,18 @@ Return JSON: { "anomalies": string[], "risk_level": "low"|"medium"|"high", "summ
         gross_monthly_rent: properties.reduce((s, p) => s + (p.monthly_rent ?? 0), 0),
         net_monthly_cash_flow: reports.reduce((s, r) => s + r.net, 0),
       });
+
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      const netCashflow = reports.reduce((s, r) => s + r.net, 0);
+      await supabase.from("monthly_cashflow_log").upsert(
+        {
+          month: monthStart.toISOString().split("T")[0],
+          net_cashflow: netCashflow,
+          is_projected: false,
+        },
+        { onConflict: "month" }
+      );
     }
 
     await logAgentAction("financial_reporter", "monthly_report", {
@@ -136,9 +151,11 @@ Return JSON: { "anomalies": string[], "risk_level": "low"|"medium"|"high", "summ
       status: "success",
     });
 
+    await setAgentStatus("financial_reporter", "idle");
     return NextResponse.json({ success: true, reports });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    await setAgentStatus("financial_reporter", "error");
     await logAgentAction("financial_reporter", "report_failed", {
       output: { error: message },
       tokensUsed: totalTokens,

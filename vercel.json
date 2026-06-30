@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/agents/deal-scanner",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/agents/refi-monitor",

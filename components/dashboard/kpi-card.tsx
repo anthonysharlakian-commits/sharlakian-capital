@@ -17,14 +17,12 @@ export function KpiCard({ title, value, subtitle, icon: Icon, trend, className }
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              {title}
-            </p>
-            <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
+            <p className="kpi-label">{title}</p>
+            <p className="kpi-value mt-1">{value}</p>
             {subtitle && (
               <p
                 className={cn(
-                  "text-xs mt-1",
+                  "kpi-hint mt-1",
                   trend === "up" && "text-score-high",
                   trend === "down" && "text-score-low",
                   !trend && "text-muted-foreground"

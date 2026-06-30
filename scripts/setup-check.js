@@ -45,6 +45,7 @@ console.log("1. Create Supabase project: https://supabase.com/dashboard");
 console.log("2. Run SQL migrations in order:");
 console.log("   - supabase/migrations/001_initial_schema.sql");
 console.log("   - supabase/migrations/002_seed_data.sql (optional demo data)");
+console.log("   - supabase/migrations/003_dashboard_schema.sql (dashboard tables)");
 console.log("3. Copy Project URL + anon key + service role key → .env.local");
 console.log("4. Add ANTHROPIC_API_KEY for AI agents");
 console.log("5. npm run dev → http://localhost:3000");

@@ -1,44 +1,42 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  PORTFOLIO_KPIS,
-} from "@/lib/mock-data";
-import { getMockStore } from "@/lib/mock-store";
 import type { Property, DealAnalysis } from "@/lib/types/database";
+import type { DashboardDeal } from "@/lib/types/dashboard";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 
+const EMPTY_KPIS = {
+  totalProperties: 0,
+  totalPortfolioValue: 0,
+  totalEquity: 0,
+  netMonthlyCashFlow: 0,
+  overallCoCReturn: 0,
+  liquidCapital: 0,
+};
+
 export async function getProperties(status?: string): Promise<Property[]> {
-  if (!hasSupabaseConfig()) {
-    const store = getMockStore();
-    return status
-      ? store.properties.filter((p) => p.status === status)
-      : store.properties;
-  }
+  if (!hasSupabaseConfig()) return [];
 
   const supabase = createAdminClient();
   let query = supabase.from("properties").select("*").order("created_at", { ascending: false });
   if (status) query = query.eq("status", status);
   const { data, error } = await query;
-  if (error || !data?.length) return getMockStore().properties;
-  return data as Property[];
+  if (error) return [];
+  return (data as Property[]) ?? [];
 }
 
 export async function getProperty(id: string): Promise<Property | null> {
-  if (!hasSupabaseConfig()) {
-    return getMockStore().properties.find((p) => p.id === id) ?? null;
-  }
+  if (!hasSupabaseConfig()) return null;
 
   const supabase = createAdminClient();
-  const { data } = await supabase.from("properties").select("*").eq("id", id).single();
-  return (data as Property) ?? getMockStore().properties.find((p) => p.id === id) ?? null;
+  const { data, error } = await supabase.from("properties").select("*").eq("id", id).single();
+  if (error || !data) return null;
+  return data as Property;
 }
 
 export async function getDealAnalysis(propertyId: string): Promise<DealAnalysis | null> {
-  if (!hasSupabaseConfig()) {
-    return getMockStore().dealAnalyses.find((a) => a.property_id === propertyId) ?? null;
-  }
+  if (!hasSupabaseConfig()) return null;
 
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("deal_analyses")
     .select("*")
     .eq("property_id", propertyId)
@@ -46,91 +44,166 @@ export async function getDealAnalysis(propertyId: string): Promise<DealAnalysis 
     .limit(1)
     .single();
 
-  return (data as DealAnalysis) ?? getMockStore().dealAnalyses.find((a) => a.property_id === propertyId) ?? null;
+  if (error || !data) return null;
+  return data as DealAnalysis;
 }
 
 export async function getDealAnalysesMap(): Promise<Record<string, DealAnalysis>> {
-  if (!hasSupabaseConfig()) {
-    const store = getMockStore();
-    return Object.fromEntries(store.dealAnalyses.map((a) => [a.property_id, a]));
-  }
+  if (!hasSupabaseConfig()) return {};
 
   const supabase = createAdminClient();
-  const { data } = await supabase.from("deal_analyses").select("*");
+  const { data, error } = await supabase.from("deal_analyses").select("*");
+  if (error || !data?.length) return {};
+
   const map: Record<string, DealAnalysis> = {};
-  for (const a of data ?? getMockStore().dealAnalyses) {
+  for (const a of data) {
     map[a.property_id] = a as DealAnalysis;
   }
   return map;
 }
 
+export async function getDealById(id: string): Promise<DashboardDeal | null> {
+  if (!hasSupabaseConfig()) return null;
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("deals").select("*").eq("id", id).single();
+  if (error || !data) return null;
+  return data as DashboardDeal;
+}
+
+export async function getUnderwritingReport(dealId: string) {
+  if (!hasSupabaseConfig()) return null;
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("underwriting_reports")
+    .select("*")
+    .eq("deal_id", dealId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data;
+}
+
+export async function getDeals(): Promise<DashboardDeal[]> {
+  if (!hasSupabaseConfig()) return [];
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("deals")
+    .select("*")
+    .order("ai_score", { ascending: false, nullsFirst: false });
+  if (error) {
+    console.error("getDeals failed:", error.message);
+    return [];
+  }
+  return (data as DashboardDeal[]) ?? [];
+}
+
 export async function getOwnedProperties() {
-  return getProperties("owned");
+  return getProperties("active");
 }
 
 export async function getTenants() {
-  if (!hasSupabaseConfig()) return getMockStore().tenants;
+  if (!hasSupabaseConfig()) return [];
   const supabase = createAdminClient();
-  const { data } = await supabase.from("tenants").select("*");
-  return data ?? getMockStore().tenants;
+  const { data, error } = await supabase.from("tenants").select("*");
+  if (error) return [];
+  return data ?? [];
 }
 
 export async function getMaintenanceRequests() {
-  if (!hasSupabaseConfig()) return getMockStore().maintenance;
+  if (!hasSupabaseConfig()) return [];
   const supabase = createAdminClient();
-  const { data } = await supabase.from("maintenance_requests").select("*").order("created_at", { ascending: false });
-  return data ?? getMockStore().maintenance;
+  const { data, error } = await supabase
+    .from("maintenance_requests")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  return data ?? [];
 }
 
 export async function getAgentLogs(limit = 20) {
-  if (!hasSupabaseConfig()) return getMockStore().agentLogs.slice(0, limit);
+  if (!hasSupabaseConfig()) return [];
   const supabase = createAdminClient();
-  const { data } = await supabase.from("agent_logs").select("*").order("created_at", { ascending: false }).limit(limit);
-  return data ?? getMockStore().agentLogs.slice(0, limit);
+  const { data, error } = await supabase
+    .from("agent_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return data ?? [];
+}
+
+export async function getAgents() {
+  if (!hasSupabaseConfig()) return [];
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("agents").select("*").order("agent_name");
+  if (error) return [];
+  return data ?? [];
 }
 
 export async function getTransactions() {
-  if (!hasSupabaseConfig()) return getMockStore().transactions;
+  if (!hasSupabaseConfig()) return [];
   const supabase = createAdminClient();
-  const { data } = await supabase.from("transactions").select("*").order("date", { ascending: false });
-  return data ?? getMockStore().transactions;
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .order("date", { ascending: false });
+  if (error) return [];
+  return data ?? [];
+}
+
+export async function getLiquidCapital(): Promise<number> {
+  if (!hasSupabaseConfig()) return 0;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "liquid_capital")
+    .single();
+  if (error || !data?.value) return 0;
+  return Number(data.value) || 0;
 }
 
 export async function getPortfolioKpis() {
-  if (!hasSupabaseConfig()) {
-    const owned = getMockStore().properties.filter((p) => p.status === "owned");
-    if (!owned.length) return PORTFOLIO_KPIS;
-    const totalValue = owned.reduce((s, p) => s + (p.current_value ?? 0), 0);
-    const totalDebt = owned.reduce((s, p) => s + (p.mortgage_balance ?? 0), 0);
-    return {
-      ...PORTFOLIO_KPIS,
-      totalProperties: owned.length,
-      totalPortfolioValue: totalValue,
-      totalEquity: totalValue - totalDebt,
-    };
-  }
+  if (!hasSupabaseConfig()) return { ...EMPTY_KPIS };
 
   const supabase = createAdminClient();
-  const { data: owned } = await supabase.from("properties").select("*").eq("status", "owned");
+  const [{ data: owned, error }, liquidCapital] = await Promise.all([
+    supabase.from("properties").select("*").eq("status", "active"),
+    getLiquidCapital(),
+  ]);
 
-  if (!owned?.length) return PORTFOLIO_KPIS;
+  if (error || !owned?.length) {
+    return { ...EMPTY_KPIS, liquidCapital };
+  }
 
   const totalValue = owned.reduce((s, p) => s + (p.current_value ?? 0), 0);
   const totalDebt = owned.reduce((s, p) => s + (p.mortgage_balance ?? 0), 0);
+  const netMonthlyCashFlow = owned.reduce(
+    (s, p) => s + ((p.monthly_rent ?? 0) - (p.monthly_expenses ?? 0)),
+    0
+  );
+  const overallCoCReturn =
+    liquidCapital > 0 ? (netMonthlyCashFlow * 12) / liquidCapital : 0;
 
   return {
     totalProperties: owned.length,
     totalPortfolioValue: totalValue,
     totalEquity: totalValue - totalDebt,
-    netMonthlyCashFlow: PORTFOLIO_KPIS.netMonthlyCashFlow,
-    overallCoCReturn: PORTFOLIO_KPIS.overallCoCReturn,
-    liquidCapital: PORTFOLIO_KPIS.liquidCapital,
+    netMonthlyCashFlow,
+    overallCoCReturn,
+    liquidCapital,
   };
 }
 
 export async function getAcquisitionCriteriaFromStore() {
-  if (!hasSupabaseConfig()) return getMockStore().acquisitionCriteria;
+  if (!hasSupabaseConfig()) return null;
   const supabase = createAdminClient();
-  const { data } = await supabase.from("acquisition_criteria").select("*").limit(1).single();
-  return data ?? getMockStore().acquisitionCriteria;
+  const { data, error } = await supabase.from("acquisition_criteria").select("*").limit(1).single();
+  if (error || !data) return null;
+  return data;
 }

@@ -4,25 +4,32 @@ import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap font-[family-name:var(--font-dm,'DM_Sans',sans-serif)] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--gold)] disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-        approve: "bg-score-high text-white hover:bg-score-high/90 font-semibold",
-        reject: "bg-score-low text-white hover:bg-score-low/90 font-semibold",
+        default:
+          "bg-[var(--gold)] text-[var(--bg-base)] hover:bg-[var(--gold)]/90 rounded-[2px] control-text font-normal tracking-wide",
+        destructive:
+          "bg-[var(--red)] text-[var(--text-primary)] hover:bg-[var(--red)]/90 rounded-[2px] control-text",
+        outline:
+          "border border-[var(--border)] bg-transparent text-[var(--text-muted)] hover:bg-[rgba(201,168,76,0.06)] hover:text-[var(--text-secondary)] rounded-[2px] control-text font-light",
+        secondary:
+          "bg-[rgba(201,168,76,0.08)] text-[var(--text-secondary)] hover:bg-[rgba(201,168,76,0.12)] rounded-[2px] control-text font-light",
+        ghost:
+          "text-[var(--text-muted)] hover:bg-[rgba(201,168,76,0.06)] hover:text-[var(--text-secondary)] rounded-[2px] control-text font-light",
+        link: "text-[var(--gold)] underline-offset-4 hover:underline control-text",
+        approve:
+          "bg-[var(--green)] text-[var(--bg-base)] hover:bg-[var(--green)]/90 rounded-[2px] control-text font-normal",
+        reject:
+          "bg-[var(--red)] text-[var(--text-primary)] hover:bg-[var(--red)]/90 rounded-[2px] control-text font-normal",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-12 rounded-md px-8 text-base",
-        xl: "h-14 rounded-md px-10 text-lg",
-        icon: "h-10 w-10",
+        default: "h-9 px-4 py-2",
+        sm: "h-8 px-3 caption-sm",
+        lg: "h-11 px-8 body-text",
+        xl: "h-12 px-10 body-text",
+        icon: "h-9 w-9",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

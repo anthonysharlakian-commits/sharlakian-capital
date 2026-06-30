@@ -47,6 +47,7 @@ Fill in `.env.local` with your API keys. The app runs in **mock/demo mode** with
 2. Open **SQL Editor** and run migrations in order:
    - `supabase/migrations/001_initial_schema.sql`
    - `supabase/migrations/002_seed_data.sql` (optional demo data)
+   - `supabase/migrations/003_dashboard_schema.sql` (dashboard tables + live KPI support)
 3. Copy **Project URL**, **anon key**, and **service role key** into `.env.local`
 4. Enable Email auth in Supabase → Authentication → Providers
 5. Set Site URL to `http://localhost:3000` and redirect URL to `http://localhost:3000/auth/callback`
@@ -74,7 +75,8 @@ curl -X POST http://localhost:3000/api/agents/orchestrator -H "Content-Type: app
 
 | Route | Purpose |
 |---|---|
-| `/` | Portfolio overview — KPIs, charts, agent feed |
+| `/dashboard` | Portfolio overview — live KPIs, cash flow, deal pipeline |
+| `/` | Redirects to `/dashboard` |
 | `/deals` | Deal Command Center — kanban pipeline |
 | `/deals/[id]` | Deal detail + approve/reject |
 | `/properties` | Owned and pipeline properties |

@@ -13,7 +13,7 @@ export async function signIn(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/");
+  redirect("/dashboard?login=success");
 }
 
 export async function signUp(formData: FormData) {
@@ -26,7 +26,7 @@ export async function signUp(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/");
+  redirect("/dashboard?login=success");
 }
 
 export async function signOut() {

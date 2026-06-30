@@ -10,6 +10,43 @@ import {
   addMockAgentLog,
   updateMockAcquisitionCriteria,
 } from "@/lib/mock-store";
+import { calculateDealMetrics, type DealFormInput } from "@/lib/deals/calculations";
+import { removeDealByPropertyId } from "@/lib/deals/sync";
+
+export async function createDeal(input: DealFormInput) {
+  const metrics = calculateDealMetrics(input);
+
+  if (!hasSupabaseConfig()) {
+    throw new Error(
+      "Supabase is not configured. Add keys to your environment variables."
+    );
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("deals").insert({
+    address: input.address,
+    city: input.city,
+    market: input.market,
+    property_type: input.property_type,
+    list_price: input.list_price,
+    adu_rent_estimate: input.adu_rent_estimate,
+    mortgage_estimate: input.mortgage_estimate,
+    adu_coverage_pct: metrics.adu_coverage_pct,
+    condition: input.condition,
+    commute_min: input.commute_min,
+    phase2_coc: metrics.phase2_coc,
+    fha_eligible: input.fha_eligible,
+    notes: input.notes,
+    coc_return: metrics.coc_return,
+    ai_score: metrics.ai_score,
+    property_id: null,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/deals");
+  revalidatePath("/dashboard");
+  return { success: true, metrics };
+}
 
 export async function approveDeal(propertyId: string, notes?: string) {
   if (hasSupabaseConfig()) {
@@ -41,6 +78,7 @@ export async function approveDeal(propertyId: string, notes?: string) {
   revalidatePath("/deals");
   revalidatePath(`/deals/${propertyId}`);
   revalidatePath("/");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -52,6 +90,7 @@ export async function rejectDeal(propertyId: string, notes?: string) {
       .update({ status: "dead", rejection_notes: notes || "Rejected by owner" })
       .eq("id", propertyId);
     if (error) throw new Error(error.message);
+    await removeDealByPropertyId(propertyId);
   } else {
     updateMockProperty(propertyId, {
       status: "dead",
@@ -76,6 +115,20 @@ export async function rejectDeal(propertyId: string, notes?: string) {
 
   revalidatePath("/deals");
   revalidatePath(`/deals/${propertyId}`);
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function updateLiquidCapital(amount: number) {
+  if (hasSupabaseConfig()) {
+    const supabase = createAdminClient();
+    await supabase
+      .from("settings")
+      .upsert({ key: "liquid_capital", value: String(amount) }, { onConflict: "key" });
+  }
+
+  revalidatePath("/settings");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -130,6 +183,7 @@ export async function submitMaintenanceRequest(data: {
         unit: data.unit ?? null,
         status: "open",
         priority: "medium",
+        resolved: false,
       })
       .select()
       .single();
@@ -163,6 +217,7 @@ export async function submitMaintenanceRequest(data: {
   }).catch(() => {});
 
   revalidatePath("/maintenance");
+  revalidatePath("/dashboard");
   return { success: true, id: requestId };
 }
 

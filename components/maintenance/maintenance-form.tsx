@@ -29,18 +29,18 @@ export function MaintenanceForm({ properties }: MaintenanceFormProps) {
   }
 
   return (
-    <Card className="glass-card">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-base">Submit Maintenance Request</CardTitle>
+        <CardTitle>Submit Maintenance Request</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={handleSubmit} className="space-y-4">
+        <form action={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-xs text-muted-foreground">Property</label>
+            <label className="form-label">Property</label>
             <select
               name="property_id"
               required
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
+              className="select-ds flex h-9 w-full px-3 py-2 mt-1"
             >
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>{p.address}</option>
@@ -48,15 +48,15 @@ export function MaintenanceForm({ properties }: MaintenanceFormProps) {
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Unit (optional)</label>
+            <label className="form-label">Unit (optional)</label>
             <Input name="unit" placeholder="Main, Unit A..." className="mt-1" />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Title</label>
+            <label className="form-label">Title</label>
             <Input name="title" placeholder="Brief issue title" required className="mt-1" />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Description</label>
+            <label className="form-label">Description</label>
             <Textarea
               name="description"
               placeholder="Describe the issue in detail..."
@@ -68,7 +68,9 @@ export function MaintenanceForm({ properties }: MaintenanceFormProps) {
             {pending ? "Submitting..." : "Submit Request"}
           </Button>
           {success && (
-            <p className="text-sm text-score-high">Request submitted — AI router is diagnosing.</p>
+            <p className="caption-sm text-[var(--green)]">
+              Request submitted — AI router is diagnosing.
+            </p>
           )}
         </form>
       </CardContent>

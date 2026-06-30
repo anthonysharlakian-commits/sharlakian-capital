@@ -1,31 +1,59 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  hasSupabaseAuthConfig,
+  toSessionOnlyCookieOptions,
+} from "@/lib/auth/session";
+
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/auth",
+  "/api/webhooks",
+  "/api/inngest",
+  "/api/auth/signout",
+  "/api/agents",
+  "/api/admin",
+] as const;
+
+function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  // Skip auth when Supabase is not configured (dev/mock mode)
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return supabaseResponse;
+  if (!hasSupabaseAuthConfig()) {
+    if (isPublicRoute(request.nextUrl.pathname)) {
+      return supabaseResponse;
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("error", "auth_not_configured");
+    return NextResponse.redirect(url);
   }
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(
+              name,
+              value,
+              toSessionOnlyCookieOptions(options)
+            )
+          );
+        },
       },
-      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
-        );
-      },
-    },
-  });
+    }
+  );
 
   const {
     data: { user },
@@ -35,12 +63,7 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/auth");
 
-  const isPublicRoute =
-    isAuthRoute ||
-    request.nextUrl.pathname.startsWith("/api/webhooks") ||
-    request.nextUrl.pathname.startsWith("/api/inngest");
-
-  if (!user && !isPublicRoute) {
+  if (!user && !isPublicRoute(request.nextUrl.pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", request.nextUrl.pathname);
@@ -49,7 +72,8 @@ export async function middleware(request: NextRequest) {
 
   if (user && isAuthRoute && !request.nextUrl.pathname.startsWith("/auth/callback")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/dashboard";
+    url.searchParams.set("login", "success");
     return NextResponse.redirect(url);
   }
 
@@ -58,6 +82,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon-192.png|icon-512.png|bg-la.jpg|manifest.json|sw.js|workbox-.*).*)",
   ],
 };

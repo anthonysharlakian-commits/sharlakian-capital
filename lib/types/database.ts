@@ -5,6 +5,7 @@ export type PropertyStatus =
   | "approved"
   | "rejected"
   | "under_contract"
+  | "active"
   | "owned"
   | "dead";
 
@@ -44,6 +45,10 @@ export interface Property {
   current_value: number | null;
   mortgage_balance: number | null;
   monthly_rent: number | null;
+  monthly_expenses?: number | null;
+  adu_monthly_rent?: number | null;
+  owner_unit_market_rent?: number | null;
+  monthly_taxes_insurance_hoa?: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
   sqft: number | null;
@@ -88,7 +93,24 @@ export interface DealAnalysis {
   comparable_sales: ComparableSale[] | null;
   market_data: MarketData | null;
   rehab_breakdown: RehabBreakdown | null;
+  phase1?: HouseHackPhase1 | null;
+  phase2?: Record<string, unknown> | null;
+  house_hack_score_breakdown?: {
+    phase1Score: number;
+    phase2CapRateScore: number;
+    phase2CocScore: number;
+  } | null;
   created_at: string;
+}
+
+export interface HouseHackPhase1 {
+  monthlyPI: number;
+  monthlyMip: number;
+  totalPiti: number;
+  aduRentCoverage: number;
+  effectiveHousingCost: number;
+  monthlySavingsVsRenting: number;
+  ownerUnitMarketRent?: number;
 }
 
 export interface ComparableSale {

@@ -4,24 +4,21 @@ import { DEFAULT_ACQUISITION_CRITERIA } from "@/lib/constants/acquisition-defaul
 
 export { DEFAULT_ACQUISITION_CRITERIA };
 
-export async function getAcquisitionCriteria(): Promise<AcquisitionCriteria> {
-  if (!hasSupabaseConfig()) {
-    const { getMockStore } = await import("@/lib/mock-store");
-    return getMockStore().acquisitionCriteria;
-  }
+export async function getAcquisitionCriteria(): Promise<AcquisitionCriteria | null> {
+  if (!hasSupabaseConfig()) return null;
 
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("acquisition_criteria")
       .select("*")
       .limit(1)
       .single();
 
-    if (data) return data as AcquisitionCriteria;
+    if (error || !data) return null;
+    return data as AcquisitionCriteria;
   } catch {
-    // fall through
+    return null;
   }
-  return DEFAULT_ACQUISITION_CRITERIA;
 }

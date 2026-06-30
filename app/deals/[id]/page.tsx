@@ -1,16 +1,15 @@
 import { notFound } from "next/navigation";
-import { getProperty, getDealAnalysis } from "@/lib/data/queries";
+import { getProperty, getDealAnalysis, getDealById, getUnderwritingReport } from "@/lib/data/queries";
+import { ScannerDealDetail } from "@/components/deals/scanner-deal-detail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DealApprovalActions } from "@/components/deals/deal-approval-actions";
 import { ScoreRadarChart } from "@/components/dashboard/charts";
 import {
-  cn,
   formatCurrency,
   formatPercent,
   formatPercentRaw,
-  getScoreColor,
-  getScoreBadgeClass,
+  cn,
 } from "@/lib/utils";
 import {
   Table,
@@ -20,69 +19,162 @@ import {
 } from "@/components/ui/table";
 import { Building2, MapPin } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function DealDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [property, analysis] = await Promise.all([
+  const [property, analysis, pipelineDeal, underwritingReport] = await Promise.all([
     getProperty(id),
     getDealAnalysis(id),
+    getDealById(id),
+    getUnderwritingReport(id),
   ]);
+
+  if (!property && pipelineDeal && !pipelineDeal.property_id) {
+    return (
+      <ScannerDealDetail
+        deal={pipelineDeal}
+        underwritingReport={underwritingReport}
+      />
+    );
+  }
 
   if (!property) notFound();
 
   const score = analysis?.deal_score;
   const isPending = property.status === "pending_approval";
+  const scoreHigh = score != null && score >= 80;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
+    <div className="max-w-5xl mx-auto space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-            <MapPin className="h-4 w-4" />
+          <div className="flex items-center gap-2 caption-sm text-[var(--text-muted)] mb-1">
+            <MapPin className="h-3 w-3" />
             {property.city}, {property.state} {property.zip}
           </div>
-          <h1 className="text-2xl font-bold">{property.address}</h1>
-          <div className="flex items-center gap-3 mt-2">
+          <h1 className="page-title">{property.address}</h1>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <Badge variant="secondary" className="capitalize">{property.type}</Badge>
             <Badge variant="outline" className="capitalize">{property.status.replace(/_/g, " ")}</Badge>
             {analysis?.ai_recommendation && (
-              <Badge variant="success" className="uppercase">{analysis.ai_recommendation.replace(/_/g, " ")}</Badge>
+              <Badge variant="success" className="uppercase">
+                {analysis.ai_recommendation.replace(/_/g, " ")}
+              </Badge>
             )}
           </div>
         </div>
         {score != null && (
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Deal Score</p>
-            <p className={cn("text-5xl font-bold", getScoreColor(score))}>{score}</p>
-            <span className={cn("inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-bold border", getScoreBadgeClass(score))}>
+          <div className="text-center panel px-5 py-3">
+            <p className="kpi-label">Deal Score</p>
+            <p
+              className={cn(
+                "mt-1 score-hero",
+                scoreHigh ? "deal-score-high" : "deal-score-low"
+              )}
+            >
+              {score}
+            </p>
+            <p className="kpi-hint mt-1">
               {score >= 75 ? "Strong" : score >= 60 ? "Moderate" : "Weak"}
-            </span>
+            </p>
           </div>
         )}
       </div>
 
-      {/* Property photo placeholder */}
-      <Card className="glass-card overflow-hidden">
-        <div className="h-48 bg-secondary/50 flex items-center justify-center">
-          <Building2 className="h-16 w-16 text-muted-foreground/30" />
+      <Card className="overflow-hidden">
+        <div className="h-40 bg-[rgba(201,168,76,0.04)] flex items-center justify-center border-b border-[var(--border)]">
+          <Building2 className="h-12 w-12 text-[var(--text-hint)]" />
         </div>
-        <CardContent className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-          <div><p className="text-muted-foreground">List Price</p><p className="font-semibold">{formatCurrency(property.list_price)}</p></div>
-          <div><p className="text-muted-foreground">Beds/Baths</p><p className="font-semibold">{property.bedrooms}/{property.bathrooms}</p></div>
-          <div><p className="text-muted-foreground">Sqft</p><p className="font-semibold">{property.sqft?.toLocaleString()}</p></div>
-          <div><p className="text-muted-foreground">Year Built</p><p className="font-semibold">{property.year_built}</p></div>
+        <CardContent className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            ["List Price", formatCurrency(property.list_price)],
+            ["Beds/Baths", `${property.bedrooms ?? "—"}/${property.bathrooms ?? "—"}`],
+            ["Sqft", property.sqft?.toLocaleString() ?? "—"],
+            ["Year Built", property.year_built ?? "—"],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <p className="kpi-label">{label}</p>
+              <p className="kpi-value mt-1 text-[18px]">{value}</p>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
       {analysis && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Financial Summary */}
-          <Card className="glass-card">
-            <CardHeader><CardTitle className="text-base">Financial Summary</CardTitle></CardHeader>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {analysis.phase1 && (
+            <Card className="lg:col-span-2">
+              <CardHeader><CardTitle>House-Hack Underwriting</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="panel p-4">
+                  <p className="kpi-label mb-2">Phase 1 — Live in Owner Unit</p>
+                  <p className="text-[0.9rem] text-[var(--text-secondary)] leading-relaxed">
+                    Effective housing cost:{" "}
+                    <span className="text-[var(--text-primary)]">
+                      {formatCurrency(analysis.phase1.effectiveHousingCost)}/mo
+                    </span>{" "}
+                    vs{" "}
+                    <span className="text-[var(--text-primary)]">
+                      {formatCurrency(
+                        analysis.phase1.ownerUnitMarketRent ??
+                          analysis.phase1.effectiveHousingCost +
+                            analysis.phase1.monthlySavingsVsRenting
+                      )}
+                    </span>{" "}
+                    market rent →{" "}
+                    <span
+                      style={{
+                        color:
+                          analysis.phase1.monthlySavingsVsRenting >= 0
+                            ? "var(--green)"
+                            : "var(--red)",
+                      }}
+                    >
+                      {formatCurrency(
+                        Math.abs(analysis.phase1.monthlySavingsVsRenting)
+                      )}
+                      /mo{" "}
+                      {analysis.phase1.monthlySavingsVsRenting >= 0
+                        ? "saved"
+                        : "above market"}
+                    </span>
+                  </p>
+                </div>
+                {analysis.phase2 && (
+                  <div className="panel p-4">
+                    <p className="kpi-label mb-2">Phase 2 — Fully Rented</p>
+                    <p className="text-[0.9rem] text-[var(--text-secondary)] leading-relaxed">
+                      Once fully rented: cap rate{" "}
+                      <span className="text-[var(--text-primary)]">
+                        {formatPercent(
+                          (analysis.phase2 as { capRate?: number }).capRate ??
+                            analysis.cap_rate ??
+                            0
+                        )}
+                      </span>
+                      , CoC{" "}
+                      <span className="text-[var(--text-primary)]">
+                        {formatPercent(
+                          (analysis.phase2 as { cashOnCashReturn?: number })
+                            .cashOnCashReturn ??
+                            analysis.cash_on_cash_return ??
+                            0
+                        )}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader><CardTitle>Financial Summary</CardTitle></CardHeader>
             <CardContent>
               <Table>
                 <TableBody>
@@ -97,8 +189,8 @@ export default async function DealDetailPage({
                     ["Rehab Estimate", formatCurrency(analysis.rehab_estimate)],
                   ].map(([label, value]) => (
                     <TableRow key={label as string}>
-                      <TableCell className="text-muted-foreground">{label}</TableCell>
-                      <TableCell className="text-right font-medium">{value}</TableCell>
+                      <TableCell className="text-[var(--text-hint)]">{label}</TableCell>
+                      <TableCell className="text-right text-[var(--text-secondary)]">{value}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -106,28 +198,25 @@ export default async function DealDetailPage({
             </CardContent>
           </Card>
 
-          {/* Score Breakdown */}
           {analysis.score_breakdown && (
-            <Card className="glass-card">
-              <CardHeader><CardTitle className="text-base">Score Breakdown</CardTitle></CardHeader>
+            <Card>
+              <CardHeader><CardTitle>Score Breakdown</CardTitle></CardHeader>
               <CardContent>
                 <ScoreRadarChart breakdown={analysis.score_breakdown} />
               </CardContent>
             </Card>
           )}
 
-          {/* AI Summary */}
-          <Card className="glass-card lg:col-span-2">
-            <CardHeader><CardTitle className="text-base">AI Analysis</CardTitle></CardHeader>
+          <Card className="lg:col-span-2">
+            <CardHeader><CardTitle>AI Analysis</CardTitle></CardHeader>
             <CardContent>
-              <p className="text-sm leading-relaxed">{analysis.ai_summary}</p>
+              <p className="body-text leading-relaxed">{analysis.ai_summary}</p>
             </CardContent>
           </Card>
 
-          {/* Market Intel */}
           {analysis.market_data && (
-            <Card className="glass-card">
-              <CardHeader><CardTitle className="text-base">Market Intel</CardTitle></CardHeader>
+            <Card>
+              <CardHeader><CardTitle>Market Intel</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableBody>
@@ -139,8 +228,8 @@ export default async function DealDetailPage({
                       ["Neighborhood Score", `${analysis.market_data.neighborhood_score}/100`],
                     ].map(([label, value]) => (
                       <TableRow key={label as string}>
-                        <TableCell className="text-muted-foreground">{label}</TableCell>
-                        <TableCell className="text-right font-medium">{value}</TableCell>
+                        <TableCell className="text-[var(--text-hint)]">{label}</TableCell>
+                        <TableCell className="text-right text-[var(--text-secondary)]">{value}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -149,12 +238,11 @@ export default async function DealDetailPage({
             </Card>
           )}
 
-          {/* Rehab Breakdown */}
           {analysis.rehab_breakdown && (
-            <Card className="glass-card">
-              <CardHeader><CardTitle className="text-base">Rehab Estimate</CardTitle></CardHeader>
+            <Card>
+              <CardHeader><CardTitle>Rehab Estimate</CardTitle></CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-primary mb-3">
+                <p className="kpi-value kpi-value-gold mb-3">
                   {formatCurrency(analysis.rehab_breakdown.total_estimate)}
                 </p>
                 <Badge variant="secondary" className="mb-4 capitalize">
@@ -164,7 +252,7 @@ export default async function DealDetailPage({
                   <TableBody>
                     {Object.entries(analysis.rehab_breakdown.breakdown).map(([item, cost]) => (
                       <TableRow key={item}>
-                        <TableCell className="text-muted-foreground capitalize">{item}</TableCell>
+                        <TableCell className="text-[var(--text-hint)] capitalize">{item}</TableCell>
                         <TableCell className="text-right">{formatCurrency(cost)}</TableCell>
                       </TableRow>
                     ))}
@@ -174,17 +262,18 @@ export default async function DealDetailPage({
             </Card>
           )}
 
-          {/* Comparable Sales */}
           {analysis.comparable_sales && (
-            <Card className="glass-card lg:col-span-2">
-              <CardHeader><CardTitle className="text-base">Comparable Sales</CardTitle></CardHeader>
+            <Card className="lg:col-span-2">
+              <CardHeader><CardTitle>Comparable Sales</CardTitle></CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {analysis.comparable_sales.map((comp, i) => (
-                    <div key={i} className="rounded-lg border border-border p-4">
-                      <p className="font-medium text-sm">{comp.address}</p>
-                      <p className="text-lg font-bold text-primary mt-1">{formatCurrency(comp.sold_price)}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                    <div key={i} className="panel p-4">
+                      <p className="body-text">{comp.address}</p>
+                      <p className="kpi-value kpi-value-gold mt-1 text-[18px]">
+                        {formatCurrency(comp.sold_price)}
+                      </p>
+                      <p className="kpi-hint mt-2">
                         Sold {comp.sold_date} · {comp.sqft} sqft · {comp.beds}bd/{comp.baths}ba
                       </p>
                     </div>
@@ -196,11 +285,10 @@ export default async function DealDetailPage({
         </div>
       )}
 
-      {/* Approval Actions */}
       {isPending && (
-        <Card className="glass-card border-primary/30">
+        <Card className="border-[rgba(201,168,76,0.3)]">
           <CardHeader>
-            <CardTitle className="text-base">Your Decision</CardTitle>
+            <CardTitle>Your Decision</CardTitle>
           </CardHeader>
           <CardContent>
             <DealApprovalActions propertyId={property.id} />
@@ -209,10 +297,10 @@ export default async function DealDetailPage({
       )}
 
       {property.status === "dead" && property.rejection_notes && (
-        <Card className="glass-card border-score-low/30">
+        <Card className="border-[rgba(224,82,82,0.3)]">
           <CardContent className="p-4">
-            <p className="text-sm text-score-low font-medium">Rejection Notes</p>
-            <p className="text-sm text-muted-foreground mt-1">{property.rejection_notes}</p>
+            <p className="form-label text-[var(--red)]">Rejection Notes</p>
+            <p className="body-text mt-2">{property.rejection_notes}</p>
           </CardContent>
         </Card>
       )}

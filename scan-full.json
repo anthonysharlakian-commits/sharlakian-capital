@@ -1,0 +1,10 @@
+{
+  "summary": {
+    "deals_found": 0,
+    "deals_qualified": 0,
+    "deals_inserted": 0,
+    "api_calls_used": 9,
+    "live_mode": true
+  },
+  "scan_results": []
+}
