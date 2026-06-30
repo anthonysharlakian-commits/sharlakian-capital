@@ -77,13 +77,23 @@ export function resolveHouseHackInputs(
       totalRent ??
       (aduMonthlyRent != null && ownerUnitMarketRent != null
         ? aduMonthlyRent + ownerUnitMarketRent
-        : 0);
+        : null);
 
-    if (total > 0) {
+    if (total != null && total > 0) {
       aduMonthlyRent = aduMonthlyRent ?? total * 0.4;
       ownerUnitMarketRent = ownerUnitMarketRent ?? total * 0.6;
       usedEstimatedSplit = true;
       splitNote = "estimated split — verify actual unit rents";
+    } else if (aduMonthlyRent != null && ownerUnitMarketRent == null) {
+      // ADU rent known but no total rent — owner unit estimated at 1.5× ADU (40/60 split)
+      ownerUnitMarketRent = aduMonthlyRent * 1.5;
+      usedEstimatedSplit = true;
+      splitNote = "owner unit estimated at 1.5× ADU rent — verify actual market rent";
+    } else if (ownerUnitMarketRent != null && aduMonthlyRent == null) {
+      // Owner unit known but no ADU rent — ADU estimated at 0.67× owner unit
+      aduMonthlyRent = ownerUnitMarketRent * 0.67;
+      usedEstimatedSplit = true;
+      splitNote = "ADU rent estimated at 0.67× owner unit rent — verify actual ADU rent";
     } else {
       aduMonthlyRent = aduMonthlyRent ?? 0;
       ownerUnitMarketRent = ownerUnitMarketRent ?? 0;
